@@ -21,7 +21,7 @@
       background: rgba(255, 255, 255, 0.55);
       backdrop-filter: blur(20px);
       border-radius: 32px;
-      padding: 48px 56px;
+      padding: 40px 56px;
       text-align: center;
       box-shadow: 0 8px 40px rgba(255, 120, 150, 0.2);
       width: 380px;
@@ -33,14 +33,14 @@
       letter-spacing: 3px;
       color: #f472b6;
       text-transform: uppercase;
-      margin-bottom: 28px;
+      margin-bottom: 20px;
     }
 
     .mode-buttons {
       display: flex;
       gap: 8px;
       justify-content: center;
-      margin-bottom: 36px;
+      margin-bottom: 5px;
       background: rgba(255,255,255,0.5);
       border-radius: 16px;
       padding: 6px;
@@ -66,9 +66,60 @@
       box-shadow: 0 2px 10px rgba(244, 114, 182, 0.25);
     }
 
+    .pokemon-area {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .pokemon-stage {
+      position: relative;
+      width: 110px;
+      height: 110px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .pokemon-stage::before {
+      content: '';
+      position: absolute;
+      bottom: 0px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100px;
+      height: 16px;
+      background: radial-gradient(ellipse, rgba(244,114,182,0.2), transparent 70%);
+      border-radius: 50%;
+    }
+
+    .pokemon-img {
+      width: 130px;
+      height: 130px;
+      object-fit: contain;
+      image-rendering: pixelated;
+      transition: opacity 0.3s, transform 0.3s;
+      filter: drop-shadow(0 4px 8px rgba(200, 80, 150, 0.25));
+    }
+
+    .pokemon-img.loading {
+      opacity: 0.2;
+      transform: scale(0.9);
+    }
+
+    .pokemon-name {
+      font-size: 14px;
+      font-weight: 800;
+      color: #d46fa0;
+      letter-spacing: 2px;
+      text-transform: capitalize;
+      padding: 4px 16px;
+      border-radius: 20px;
+    }
+
     .timer-wrap {
       position: relative;
-      margin-bottom: 32px;
+      margin-bottom: 24px;
     }
 
     .progress-ring {
@@ -102,12 +153,6 @@
       font-variant-numeric: tabular-nums;
       letter-spacing: 2px;
       line-height: 1;
-    }
-
-    .emoji {
-      display: block;
-      font-size: 22px;
-      margin-top: 6px;
     }
 
     .controls {
@@ -163,6 +208,13 @@
       <button class="mode-btn" data-mode="long">大休憩 15分</button>
     </div>
 
+    <div class="pokemon-area">
+      <div class="pokemon-stage">
+        <img class="pokemon-img loading" id="pokemonImg" src="" alt="pokemon">
+      </div>
+      <span class="pokemon-name" id="pokemonName">...</span>
+    </div>
+
     <div class="timer-wrap">
       <svg class="progress-ring" width="200" height="200" viewBox="0 0 200 200">
         <defs>
@@ -189,11 +241,12 @@
 
   <script>
     const MODES = {
-      work:  { seconds: 25 * 60, emoji: '🍎', status: '集中中... 💪' },
-      short: { seconds:  5 * 60, emoji: '☕', status: '小休憩中... 🌸' },
-      long:  { seconds: 15 * 60, emoji: '🌴', status: '大休憩中... 🎵' },
+      work:  { seconds: 25 * 60, status: '集中中... 💪' },
+      short: { seconds:  5 * 60, status: '小休憩中... 🌸' },
+      long:  { seconds: 15 * 60, status: '大休憩中... 🎵' },
     };
 
+    const POKEMON_COUNT = 1025;
     const CIRCUMFERENCE = 2 * Math.PI * 88;
 
     const $ = id => document.getElementById(id);
@@ -205,6 +258,21 @@
       remaining: MODES.work.seconds,
       running: false,
       interval: null,
+    };
+
+    const fetchRandomPokemon = async () => {
+      const id = Math.floor(Math.random() * POKEMON_COUNT) + 1;
+      const img = $('pokemonImg');
+      img.classList.add('loading');
+      try {
+        const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${id}`);
+        const data = await res.json();
+        img.src = data.sprites.front_default;
+        img.onload = () => img.classList.remove('loading');
+        $('pokemonName').textContent = data.name;
+      } catch {
+        $('pokemonName').textContent = '...';
+      }
     };
 
     const setProgress = ratio => {
@@ -230,7 +298,6 @@
       document.querySelectorAll('.mode-btn').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.mode === mode);
       });
-      $('emoji').textContent = MODES[mode].emoji;
       $('startBtn').textContent = 'スタート';
       $('status').textContent = '準備完了 ✨';
       updateDisplay();
@@ -273,6 +340,7 @@
             $('startBtn').textContent = 'スタート';
             $('status').textContent = '完了！ 🎉';
             playAlarm();
+            fetchRandomPokemon();
           }
         }, 1000);
       }
@@ -295,6 +363,7 @@
     $('resetBtn').addEventListener('click', resetTimer);
 
     updateDisplay();
+    fetchRandomPokemon();
   </script>
 </body>
 </html>
