@@ -68,8 +68,16 @@
 
     .pokemon-area {
       display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .pokemon-info {
+      display: flex;
       flex-direction: column;
       align-items: center;
+      flex-shrink: 0;
     }
 
     .pokemon-stage {
@@ -100,11 +108,65 @@
       image-rendering: pixelated;
       transition: opacity 0.3s, transform 0.3s;
       filter: drop-shadow(0 4px 8px rgba(200, 80, 150, 0.25));
+      cursor: pointer;
     }
+
+    .pokemon-img:hover { transform: scale(1.08); }
 
     .pokemon-img.loading {
       opacity: 0.2;
       transform: scale(0.9);
+    }
+
+    .speech-bubble {
+      width: 0;
+      overflow: hidden;
+      flex-shrink: 0;
+      transition: width 0.35s cubic-bezier(0.34, 1.1, 0.64, 1),
+                  margin-left 0.35s ease;
+      margin-left: 0;
+    }
+
+    .pokemon-area:hover .speech-bubble,
+    .pokemon-area.expanded .speech-bubble {
+      width: 130px;
+      margin-left: 8px;
+    }
+
+    .speech-bubble-inner {
+      width: 120px;
+      margin-left: 10px;
+      background: #fff;
+      border: 2px solid #f9a8d4;
+      border-radius: 14px;
+      padding: 10px 12px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #9d4a72;
+      line-height: 1.6;
+      text-align: left;
+      box-shadow: 0 4px 16px rgba(244,114,182,0.15);
+      position: relative;
+    }
+
+    .speech-bubble-inner::before {
+      content: '';
+      position: absolute;
+      left: -10px;
+      top: 50%;
+      transform: translateY(-50%);
+      border: 6px solid transparent;
+      border-right-color: #f9a8d4;
+    }
+
+    .speech-bubble-inner::after {
+      content: '';
+      position: absolute;
+      left: -7px;
+      top: 50%;
+      transform: translateY(-50%);
+      border: 5px solid transparent;
+      border-right-color: #fff;
     }
 
     .pokemon-name {
@@ -208,11 +270,16 @@
       <button class="mode-btn" data-mode="long">大休憩 15分</button>
     </div>
 
-    <div class="pokemon-area">
-      <div class="pokemon-stage">
-        <img class="pokemon-img loading" id="pokemonImg" src="" alt="pokemon">
+    <div class="pokemon-area" id="pokemonArea">
+      <div class="pokemon-info">
+        <div class="pokemon-stage">
+          <img class="pokemon-img loading" id="pokemonImg" src="" alt="pokemon">
+        </div>
+        <span class="pokemon-name" id="pokemonName">...</span>
       </div>
-      <span class="pokemon-name" id="pokemonName">...</span>
+      <div class="speech-bubble" id="speechBubble">
+        <div class="speech-bubble-inner" id="speechBubbleInner">クリックして説明を見る ✨</div>
+      </div>
     </div>
 
     <div class="timer-wrap">
@@ -260,8 +327,15 @@
       interval: null,
     };
 
+    let currentPokemonId = null;
+    let cachedDescription = null;
+
     const fetchRandomPokemon = async () => {
       const id = Math.floor(Math.random() * POKEMON_COUNT) + 1;
+      currentPokemonId = id;
+      cachedDescription = null;
+      $('pokemonArea').classList.remove('expanded');
+      $('speechBubbleInner').textContent = 'クリックして説明を見る ✨';
       const img = $('pokemonImg');
       img.classList.add('loading');
       try {
@@ -272,6 +346,32 @@
         $('pokemonName').textContent = data.name;
       } catch {
         $('pokemonName').textContent = '...';
+      }
+    };
+
+    const toggleDescription = async () => {
+      const area = $('pokemonArea');
+      if (area.classList.contains('expanded')) {
+        area.classList.remove('expanded');
+        return;
+      }
+      if (!currentPokemonId) return;
+      area.classList.add('expanded');
+      if (cachedDescription) {
+        $('speechBubbleInner').textContent = cachedDescription;
+        return;
+      }
+      $('speechBubbleInner').textContent = '読み込み中...';
+      try {
+        const res = await fetch(`https://pokeapi.co/api/v2/pokemon-species/${currentPokemonId}`);
+        const data = await res.json();
+        const entry = data.flavor_text_entries.find(e => e.language.name === 'ja');
+        cachedDescription = entry
+          ? entry.flavor_text.replace(/\f/g, ' ')
+          : '説明がみつからないよ…';
+        $('speechBubbleInner').textContent = cachedDescription;
+      } catch {
+        $('speechBubbleInner').textContent = '読み込みに失敗したよ…';
       }
     };
 
@@ -292,14 +392,21 @@
       setProgress(state.remaining / total);
     };
 
-    const setMode = mode => {
+    const stopTimer = statusText => {
       clearInterval(state.interval);
-      state = { mode, remaining: MODES[mode].seconds, running: false, interval: null };
+      state.running = false;
+      state.interval = null;
+      $('startBtn').textContent = 'スタート';
+      $('status').textContent = statusText;
+    };
+
+    const setMode = mode => {
+      stopTimer('準備完了 ✨');
+      state.mode = mode;
+      state.remaining = MODES[mode].seconds;
       document.querySelectorAll('.mode-btn').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.mode === mode);
       });
-      $('startBtn').textContent = 'スタート';
-      $('status').textContent = '準備完了 ✨';
       updateDisplay();
     };
 
@@ -323,10 +430,7 @@
 
     const toggleTimer = () => {
       if (state.running) {
-        clearInterval(state.interval);
-        state.running = false;
-        $('startBtn').textContent = 'スタート';
-        $('status').textContent = '一時停止中 ⏸';
+        stopTimer('一時停止中 ⏸');
       } else {
         state.running = true;
         $('startBtn').textContent = '一時停止';
@@ -335,10 +439,7 @@
           state.remaining--;
           updateDisplay();
           if (state.remaining <= 0) {
-            clearInterval(state.interval);
-            state.running = false;
-            $('startBtn').textContent = 'スタート';
-            $('status').textContent = '完了！ 🎉';
+            stopTimer('完了！ 🎉');
             playAlarm();
             fetchRandomPokemon();
           }
@@ -347,12 +448,8 @@
     };
 
     const resetTimer = () => {
-      clearInterval(state.interval);
+      stopTimer('準備完了 ✨');
       state.remaining = MODES[state.mode].seconds;
-      state.running = false;
-      state.interval = null;
-      $('startBtn').textContent = 'スタート';
-      $('status').textContent = '準備完了 ✨';
       updateDisplay();
     };
 
@@ -361,6 +458,7 @@
     });
     $('startBtn').addEventListener('click', toggleTimer);
     $('resetBtn').addEventListener('click', resetTimer);
+    $('pokemonImg').addEventListener('click', toggleDescription);
 
     updateDisplay();
     fetchRandomPokemon();

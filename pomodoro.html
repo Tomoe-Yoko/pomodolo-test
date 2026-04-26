@@ -104,12 +104,6 @@
       line-height: 1;
     }
 
-    .emoji {
-      display: block;
-      font-size: 22px;
-      margin-top: 6px;
-    }
-
     .controls {
       display: flex;
       gap: 12px;
@@ -189,9 +183,9 @@
 
   <script>
     const MODES = {
-      work:  { seconds: 25 * 60, emoji: '🍎', status: '集中中... 💪' },
-      short: { seconds:  5 * 60, emoji: '☕', status: '小休憩中... 🌸' },
-      long:  { seconds: 15 * 60, emoji: '🌴', status: '大休憩中... 🎵' },
+      work:  { seconds: 25 * 60, status: '集中中... 💪' },
+      short: { seconds:  5 * 60, status: '小休憩中... 🌸' },
+      long:  { seconds: 15 * 60, status: '大休憩中... 🎵' },
     };
 
     const CIRCUMFERENCE = 2 * Math.PI * 88;
@@ -230,7 +224,6 @@
       document.querySelectorAll('.mode-btn').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.mode === mode);
       });
-      $('emoji').textContent = MODES[mode].emoji;
       $('startBtn').textContent = 'スタート';
       $('status').textContent = '準備完了 ✨';
       updateDisplay();
