@@ -428,10 +428,20 @@
       });
     };
 
+    const notifyComplete = () => {
+      if (!('Notification' in window) || Notification.permission !== 'granted') return;
+      new Notification('ポモドーロ完了！ 🎉', {
+        body: `${MODES[state.mode].status.replace(/\.\.\..*/, '')}が終わりました ✨`,
+      });
+    };
+
     const toggleTimer = () => {
       if (state.running) {
         stopTimer('一時停止中 ⏸');
       } else {
+        if ('Notification' in window && Notification.permission === 'default') {
+          Notification.requestPermission();
+        }
         state.running = true;
         $('startBtn').textContent = '一時停止';
         $('status').textContent = MODES[state.mode].status;
@@ -441,6 +451,7 @@
           if (state.remaining <= 0) {
             stopTimer('完了！ 🎉');
             playAlarm();
+            notifyComplete();
             fetchRandomPokemon();
           }
         }, 1000);
