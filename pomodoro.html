@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ポモドーロタイマー</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Helvetica Neue', sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      background: #1a1a2e;
+      color: #fff;
+    }
+
+    .container {
+      text-align: center;
+      padding: 40px;
+    }
+
+    .mode-buttons {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      margin-bottom: 40px;
+    }
+
+    .mode-btn {
+      padding: 8px 20px;
+      border: none;
+      border-radius: 20px;
+      cursor: pointer;
+      font-size: 14px;
+      background: rgba(255,255,255,0.1);
+      color: #fff;
+      transition: background 0.2s;
+    }
+
+    .mode-btn.active {
+      background: #e94560;
+    }
+
+    .timer {
+      font-size: 96px;
+      font-weight: 200;
+      letter-spacing: 4px;
+      margin-bottom: 40px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .controls {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+    }
+
+    .btn {
+      padding: 14px 36px;
+      border: none;
+      border-radius: 30px;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: 600;
+      transition: transform 0.1s, opacity 0.2s;
+    }
+
+    .btn:active { transform: scale(0.97); }
+
+    .btn-start {
+      background: #e94560;
+      color: #fff;
+      min-width: 120px;
+    }
+
+    .btn-reset {
+      background: rgba(255,255,255,0.1);
+      color: #fff;
+    }
+
+    .status {
+      margin-top: 24px;
+      font-size: 14px;
+      opacity: 0.5;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="mode-buttons">
+      <button class="mode-btn active" onclick="setMode('work')">作業 25分</button>
+      <button class="mode-btn" onclick="setMode('short')">小休憩 5分</button>
+      <button class="mode-btn" onclick="setMode('long')">大休憩 15分</button>
+    </div>
+
+    <div class="timer" id="timer">25:00</div>
+
+    <div class="controls">
+      <button class="btn btn-start" id="startBtn" onclick="toggleTimer()">スタート</button>
+      <button class="btn btn-reset" onclick="resetTimer()">リセット</button>
+    </div>
+
+    <div class="status" id="status">準備完了</div>
+  </div>
+
+  <script>
+    const modes = {
+      work:  { label: '作業 25分',  seconds: 25 * 60 },
+      short: { label: '小休憩 5分', seconds:  5 * 60 },
+      long:  { label: '大休憩 15分',seconds: 15 * 60 },
+    };
+
+    let currentMode = 'work';
+    let remaining = modes.work.seconds;
+    let interval = null;
+    let running = false;
+
+    function setMode(mode) {
+      clearInterval(interval);
+      running = false;
+      currentMode = mode;
+      remaining = modes[mode].seconds;
+      document.querySelectorAll('.mode-btn').forEach((btn, i) => {
+        btn.classList.toggle('active', ['work','short','long'][i] === mode);
+      });
+      updateDisplay();
+      document.getElementById('startBtn').textContent = 'スタート';
+      document.getElementById('status').textContent = '準備完了';
+    }
+
+    function toggleTimer() {
+      if (running) {
+        clearInterval(interval);
+        running = false;
+        document.getElementById('startBtn').textContent = 'スタート';
+        document.getElementById('status').textContent = '一時停止中';
+      } else {
+        running = true;
+        document.getElementById('startBtn').textContent = '一時停止';
+        document.getElementById('status').textContent = currentMode === 'work' ? '集中中...' : '休憩中...';
+        interval = setInterval(() => {
+          remaining--;
+          updateDisplay();
+          if (remaining <= 0) {
+            clearInterval(interval);
+            running = false;
+            document.getElementById('startBtn').textContent = 'スタート';
+            document.getElementById('status').textContent = '完了！';
+            playAlarm();
+          }
+        }, 1000);
+      }
+    }
+
+    function resetTimer() {
+      clearInterval(interval);
+      running = false;
+      remaining = modes[currentMode].seconds;
+      updateDisplay();
+      document.getElementById('startBtn').textContent = 'スタート';
+      document.getElementById('status').textContent = '準備完了';
+    }
+
+    function updateDisplay() {
+      const m = String(Math.floor(remaining / 60)).padStart(2, '0');
+      const s = String(remaining % 60).padStart(2, '0');
+      document.getElementById('timer').textContent = `${m}:${s}`;
+      document.title = `${m}:${s} — ポモドーロ`;
+    }
+
+    function playAlarm() {
+      const ctx = new AudioContext();
+      [0, 0.3, 0.6].forEach(delay => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.frequency.value = 880;
+        osc.type = 'sine';
+        gain.gain.setValueAtTime(0.4, ctx.currentTime + delay);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.4);
+        osc.start(ctx.currentTime + delay);
+        osc.stop(ctx.currentTime + delay + 0.4);
+      });
+    }
+  </script>
+</body>
+</html>
